@@ -1,0 +1,256 @@
+---
+title: "Possible factors that affected mental health and the total number of children of different household income brackets."
+author: "Hung Dao, Huynh Vu Minh Hoang 56"
+date: "October 19, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Possible factors that affected mental health and the total number of children of different household income brackets
+
+# Hung Dao and Huynh Vu Minh Hoang
+
+<!-- Code and data supporting this analysis is available at: https://github.com/hungdaouoft/STA304-PS2 -->
+
+# October 19, 2020
+
+## Abstract
+
+The General Social Survey is a survey conducted by Statistics Canada yearly to create and draw an inference that follows the trend and behaviour of the Canadian population. We randomly sample from the 2017 GSS data to make a logistic model and look for connections between certain variables and make hypothesis upon our data. 
+
+## Introduction
+
+With the raw data, we make boxplots between the total number of children, separating each by the income bracket of that family and was able to draw a hypothesis from that. Next, we randomly sampled our data from the size of 20602 observation to 200, while still keeping the core characteristics of the population. Sensing there could be a potential connection between variables age, hours worked and mental health, we decided to run a logistic model to build predict the probability of someone with poor mental health provided how much they worked on average and how old they are.
+
+## Data
+General Social Survey or GSS data is that is yearly conducted, with a sample size of 25,000 people. Based on Statistics Canada, the government entity that conducted and provided the data, the data collecting process traditionally have used 2 ways of surveying: Random Digit Dialing (RDD) and Computer Assisted Telephone Interviewing (CATI). Technological advancement and social environment urged for a change in how surveys need to be conducted. The GSS ‘s sampling frame is now comprised of everyone eligible for telephone surveying as well as self-completed online questionnaires. Some data, such as income, are not collected through the surveys but through drawn from tax records and other administrative files. Statistics Canada said that the purpose of GSS is to monitor changes and behaviour in the conditions and the well being of Canadians to properly provide information on certain social policy issues.
+
+The data we used is the 2017 GSS, comprised of 20,602 observations with 81 different variables.
+
+The target population would be the current population of Canada in 2017, roughly at 36.54 million people, as all the population of Canada is covered by the objective of the study.
+
+The frame population is every one that is covered by the sampling frame, meaning anyone who can be contacted through the means of data collection for the survey.
+
+The sampled population is represented by the 20,602 observations in the GSS data.
+
+In this 2017 GSS data, we are interested in a variety of variables such as the number of total children, income in the family, ...  We would like to study in-depth and draw inferences from the possible relationships between interested variables.
+
+Key features of the survey include very detailed demographics data from ages, income, genders to self-rated health and mental health, religion participation. The strength of the data is its attention to detail for variables, beneficial for various cross-sectional studies. A drawback would be a high volume of categorical variables. While it is not impossible to make a model to draw inference from, it would have been easier with a presence of more quantitative variables. Instead of income is divided as brackets, would be easier to make a regression model for income and age if income is a quantitative variable.
+
+we mainly focus on the variable income_family, total_children, age, self_rated_mental_heatlh and average_hours_worked. The variable self_rated_mental_health had been mutated into adjusted_mental_health, which is a binary variable, 0 for poor and 1 for the rest(Excellent, Very Good, Good, Fair, Unsure). The Variable adjusted_hours_worked had been mutated into adjusted_hours_worked, which now comprised of 1,2,3,4 and 5, representing 0 hours worked, 0,1 to 29.9 hours worked, 30 to 40 hours worked, and 50+ hours worked, respectively.
+
+
+```{r, include=FALSE}
+library(tidyverse)
+```
+
+```{r, include=FALSE}
+raw_data = read.csv('gss.csv')
+attach(raw_data)
+```
+
+
+```{r, echo=FALSE}
+# Filter variables and plot of general raw data
+variable_data = raw_data %>% 
+  select(income_family, total_children, age, self_rated_mental_health, average_hours_worked) %>%
+  filter(total_children != 'NA') %>%
+  filter(age != 'NA') %>%
+  filter(income_family != 'NA') %>%
+  filter(self_rated_mental_health != 'NA') %>%
+  filter(average_hours_worked != 'NA') %>%
+  filter(average_hours_worked != 'Don\'t know')
+
+
+ggplot(variable_data, aes(x = total_children, y = income_family)) +
+  geom_boxplot() + 
+  labs(title = 'Figure 1. Boxplot of general population', x = 'Total number of children', y = 'Family Income')
+
+```
+
+
+The plot above showed the characteristic of the variable “Total number of children” across different bracket of the variable “Family Income”. We can see the mean for total children in each household across the income bracket, with the mean of the whole sampled population is 1.679. An interesting thing is a mean change from 0 to 1 when we move from “less than $25,000” to the next tier “$25,000 to $49,000. the Same thing happens when we move further up from “$50,000 to $74,999” to “$75,000 to $99,000”, the mean of the number of children moved from 1 to 2.
+
+From these changes in the mean, we would like to make a hypothesis that families with a higher income would be more likely to have more children than a family with a much lower income.
+
+
+## Model
+
+
+```{r, echo=FALSE}
+# Create adjusted values for Mental Health and Hours Worked variables.
+clean_data = variable_data %>%
+  mutate(adjusted_mental_health = ifelse(variable_data$self_rated_mental_health == 'Poor', 0, 1)) %>%
+  mutate(adjusted_hours_worked = ifelse(variable_data$average_hours_worked == '0 hour', 1, ifelse(variable_data$average_hours_worked == '0.1 to 29.9 hours', 2, ifelse(variable_data$average_hours_worked == '30.0 to 40.0 hours', 3, ifelse(variable_data$average_hours_worked == '40.1 to 50.0 hours', 4, 5)))))
+
+# Create working data - choosing the newly adjusted variables.
+working_data = clean_data %>% 
+  select(income_family, total_children, age, adjusted_mental_health, adjusted_hours_worked)
+```
+
+We randomly sampled without replacement 200 samples drawn from the sampled population.
+
+```{r, echo=FALSE}
+set.seed(3337)
+sample_data = working_data %>%
+  sample_n(size = 200)
+
+ggplot(sample_data, aes(x = total_children, y = income_family)) +
+  geom_boxplot() + 
+  labs(title = 'Figure 2. Boxplot between interested variables Sample Data', x = 'Total number of children', y = 'Family Income')
+```
+
+For this part, we decided to run a logistic regression to see the relationship between mental health, age and hours worked. With mental health is the dependent variable, with both age and hours worked is the independent variables. Mental health is classified as a binary variable, 0 for poor and 1 for all unsure, fair, good, excellent. Age is a quantitative variable and hours worked is a qualitative variable, classifying in term of rank.
+
+rank 1: 0 hours worked
+
+rank 2: 0.1 to 29.9 hours worked
+
+rank 3: 30 to 40 hours worked
+
+rank 4: 41 to 50 hours worked
+
+rank 5: 50+ hours worked
+
+The model is built with the purpose of understanding does more hours worked combined with ages would and how it will affect a person self-rated mental health. Since we are using logistic regression, it’s a purpose is to model the probability of a person’s mental health, given the number of hours they worked on average and how old they are.
+
+The null hypothesis would be that ages and hours worked does not have an impact on mental health.
+
+```{r,  echo=FALSE}
+logit = glm(adjusted_mental_health ~ age + as.factor(adjusted_hours_worked), data = sample_data, family = 'binomial')
+summary(logit)
+```
+
+Logistic model: $$ log(\frac{p}{1-p}) = 1.234 + 0.0393 * age + 2.007 * rank_3 + 0.1964 * rank_4 + 16.58 * rank_5 $$
+
+## Results
+
+```{r, echo=FALSE}
+# Create adjusted values for Mental Health and Hours Worked variables.
+clean_data = variable_data %>%
+  mutate(adjusted_mental_health = ifelse(variable_data$self_rated_mental_health == 'Poor', 0, 1)) %>%
+  mutate(adjusted_hours_worked = ifelse(variable_data$average_hours_worked == '0 hour', 1, ifelse(variable_data$average_hours_worked == '0.1 to 29.9 hours', 2, ifelse(variable_data$average_hours_worked == '30.0 to 40.0 hours', 3, ifelse(variable_data$average_hours_worked == '40.1 to 50.0 hours', 4, 5)))))
+
+# Create working data - choosing the newly adjusted variables.
+working_data = clean_data %>% 
+  select(income_family, total_children, age, adjusted_mental_health, adjusted_hours_worked)
+```
+
+
+Below are histograms for total children in a family under each income bracket.
+
+```{r, echo=FALSE}
+# Data of Less than $25000 family income
+less_than_25 = sample_data %>% filter(income_family == 'Less than $25,000')
+ggplot(less_than_25, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 3. Histogram for family with income below $25,000', x = 'number of children')
+summary(less_than_25)
+```
+
+According to the 5 number summary for this income bracket of “less than $25,000”, the min and the first quantile or the 25th quantile is 0, the mean is 1.167, with the 3rd quantile at 3 and the max is at 6. The histogram appears to be very heavily skewed to the right also. A note is that all of our 18 observations in this subgroup all have more than fair self-rated mental health as well.
+
+
+
+```{r, echo=FALSE}
+# Data of $25,000 -> $49,999 family income
+between_25k_50k = sample_data %>% filter(income_family == '$25,000 to $49,999')
+ggplot(between_25k_50k, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 4. Histogram for family with income between $25,000 to $49,999', x = 'number of children')
+summary(between_25k_50k)
+```
+
+In the income bracket, with 35 observations, there is now 1 observation with poor mental health.  The 5 number summary for this bracket is very similar with the first income bracket, with a 0 for both the min and the 1st quantile for the total children have while then mean is now 1.143 with the max at 6.
+
+```{r, echo=FALSE}
+# Data of $50,000 -> $74,999 family income
+between_50k_75k = sample_data %>% filter(income_family == '$50,000 to $74,999')
+ggplot(between_50k_75k, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 5. Histogram for family with income between $50,000 to $74,999', x = 'number of children')
+summary(between_50k_75k)
+```
+
+
+
+```{r, echo=FALSE}
+# Data of $75,000 -> $99,999 family income
+between_75k_100k = sample_data %>% filter(income_family == '$75,000 to $99,999')
+ggplot(between_75k_100k, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 6. Histogram for family with income between $75,000 to $99,999', x = 'number of children')
+summary(between_75k_100k)
+```
+
+While this graph is similar to the first 2 in term of its statistics, it is noted that as income bracket increases, the histogram is less and less right-skewed.
+
+```{r, echo=FALSE}
+# Data of $100,000 -> $124,999 family income
+between_100k_125k = sample_data %>% filter(income_family == '$100,000 to $ 124,999')
+ggplot(between_100k_125k, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 7. Histogram for family with income between $100,000 to $124,999', x = 'number of children')
+summary(between_100k_125k)
+```
+
+
+```{r, echo=FALSE}
+# Data of more than $125,000 family income
+more_than_125k = sample_data %>% filter(income_family == '$125,000 and more')
+ggplot(more_than_125k, aes(x = total_children)) +
+  geom_histogram(bins = 8, color = 'black', fill='white') +
+  labs(title = 'Figure 8. Histogram for family with income $125,000 and more', x = 'number of children')
+summary(more_than_125k)
+```
+In the 65 observations for the highest income bracket group, the mean of total children is at 1.692, while the mean is at 2, the only income bracket group with the mean lower than the median, indicating there is a left-skewed in the histogram.
+
+Overall, all the graphs made from our randomly sampled without replacement have the mean at 1.1 and are right-skewed, while the highest income bracket has the mean of 1.67 and left-skewed. As for the first 4 histograms, as the income increases, there is a reduction is skewness in each graph.
+
+
+## Discussion
+
+During our study, there seems to be a weak positive correlation between the total number of children of a family and their household income bracket. According to Statistics Canada, the average household income in 2017 was estimated to be $59,800, so we can see that a greater proportion of families with below the average income level tends to stay childless and this number decrease for more well off household.
+
+Logistic model: $$ log(\frac{p}{1-p}) = 1.234 + 0.0393 * age + 2.007 * rank_3 + 0.1964 * rank_4 + 16.58 * rank_5 $$
+
+In which: 
+
+rank 1: 0 hours worked
+
+rank 2: 0.1 to 29.9 hours worked
+
+rank 3: 30 to 40 hours worked
+
+rank 4: 41 to 50 hours worked
+
+rank 5: 50+ hours worked
+
+Since our model is built with the response variable, 0 for poor mental health and 1 for fair and above, a probability $p$ close to 1 indicates a high probability of not having poor mental health, while probability $p$ close to 0 suggests that person self-assessment of their mental health be quite low. With the slope for the variable age is 0.0393, smaller comparing to all the other possible slopes for hours worked, we get that age to have a smaller impact than comparing to the hours worked. While we see the slop of hours worked for rank 1 and 2 is 0, which mean hours worked below 30 hours does not impact on mental health, only age does for those who work at maximum 29.9 hours. Rank 3 has a significantly higher slope than rank 4, almost 10 times bigger, and rank 5 has the slope of 16.58, having the greatest impact on mental health. Since the function on the right-hand side is all positive, we can deduce that as the sum of the function on the right-hand side gets bigger, which could mean that on average, they work for a longer period, hence could put more pressure on their mental health, resulting in lower $p$ value.
+
+A drawback for the model would be that the respective value for all of the variables is very high, which would also mean that we would fail to reject the null hypothesis, meaning either that ages and hours worked does not contribute to mental health or we are missing crucial variables that would help us explain the model significantly better.
+
+# Weaknesses
+
+A weakness in the survey process is data collecting through telephone interviews can limit ceratin people in the demographic, as well as the type of data that can be collected. Families that do not have a telephone would be excluded from the CATI sample, while families that are not well versed with the Internet would be excluded from the sample of the online questionnaire. Another problem that surveys and phone interviews generally face is the social desirability bias, which is a type of response bias where the respondent would answer questions not truthfully, but in a way that it would be considered as favoured by others.
+
+Where the data could have been improved upon is going from dividing variables such as hours worked and income into brackets, to have the variables as a quantitative response, clear numbers that can be used to plots and make models more detailed.
+
+The weakness of the study is the lack of multiple models that are needed to get inferences, whether to reject the hypothesis that families with a higher income would be more likely to have more children than a family with a much lower income.
+
+# Next Steps
+
+We could run a hypothesis test for the hypothesis of families with a higher income would be more likely to have more children than a family with a much lower income.
+For subsequent surveys, a survey that grades a person mental health more in-depth could be beneficial, as well as more details for incomes and hours worked. With a more in-depth mental health score, a subsequent study of how ages, number of children impact on mental health.
+
+
+## References
+
+CHASS, (2017). GSS17, 2017 (Computing in the Humanities and Social Sciences). Retrieved October 19, 2020, from http://www.chass.utoronto.ca/
+
+Canada, S. (2019, February 26). Canadian Income Survey, 2017 (Canada, Statistics Canada). Retrieved October 19, 2020, from https://www150.statcan.gc.ca/n1/daily-quotidien/190226/dq190226b-eng.htm
+
+Alexander, R. (2020). Telling Stories With Data [Web log post]. Retrieved 2020, from https://www.tellingstorieswithdata.com/
